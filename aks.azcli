@@ -1,0 +1,24 @@
+#Web Browser will open to authenticate against your subscription 
+az login 
+
+#Create a New resource group 
+az group create --name AKSResourceGroup --location eastus
+
+#Creating The AKS Cluster
+#If you would like to generate new SSH Keys 
+az aks create --resource-group AKSResourceGroup --name myAKSCluster --node-count 3 --generate-ssh-keys
+
+#If you would like to use existing SSH keys 
+az aks create --resource-group AKSResourceGroup --name MyAKSCluster --node-count 3 --ssh-key-value C:\\Users\micha\\.ssh\\id_rsa
+
+#Merge AKS Cluster with current Kubectl Configuration 
+az aks get-credentials --resource-group AKSResourceGroup --name myAKSCluster
+
+#Confirm kubectl has new config
+kubectl config get-contexts
+
+#Confirm your nodes are all up and running
+kubectl get nodes
+
+#Delete the Cluster 
+az group delete --name AKSResourceGroup --yes --no-wait
