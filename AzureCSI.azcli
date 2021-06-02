@@ -1,0 +1,57 @@
+#Can only be set when you create the cluster 
+#Has to be Kubernetes version 1.17 or newer 
+#Default will remain in tree 
+#Only Azure CLI is supported in preview 
+
+#register feature flag 
+az feature register --namespace "Microsoft.ContainerService" --name "EnableAzureDiskFileCSIDriver"
+
+#show feature list 
+az feature list -o table --query "[?contains(name, 'Microsoft.ContainerService/EnableAzureDiskFileCSIDriver')].{Name:name,State:properties.state}"
+
+#refresh registration 
+az provider register --namespace Microsoft.ContainerService
+
+#add and update the aks-preview extension for Azure CLI 
+# Install the aks-preview extension
+az extension add --name aks-preview
+# Update the extension to make sure you have the latest version installed
+az extension update --name aks-preview
+
+# Create an Azure resource group
+az group create --name AKSCSIResourceGroup --location eastus
+
+#Choose the relevant & required Kubernetes version change to your region 
+az aks get-versions --location eastus --output table
+
+# Create an AKS-managed Azure AD cluster
+az aks create -g AKSCSIResourceGroup -n AKSCSIManagedCluster --network-plugin azure -k 1.20.7 --node-count 3 --generate-ssh-keys --aks-custom-headers EnableAzureDiskFileCSIDriver=true
+
+#Merge AKS Cluster with current Kubectl Configuration 
+az aks get-credentials --resource-group AKSCSIResourceGroup --name AKSCSIManagedCluster
+
+#Confirm kubectl has new config
+kubectl config get-contexts
+
+#Confirm your nodes are all up and running
+kubectl get nodes
+
+#crds, controllers, drivers, rbac
+kubectl create -f .\azurefile-csi-driver\deploy\
+
+#Create VolumeSnapshotClass for Azure Disk
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/azuredisk-csi-driver/master/deploy/example/snapshot/storageclass-azuredisk-snapshot.yaml
+
+#Create VolumeSnapshotClass for Azure File
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/snapshot/volumesnapshotclass-azurefile.yaml
+
+#Confirm that we have our newly created VolumeSnapshotClass 
+kubectl get VolumeSnapshotClass 
+
+#Delete the Cluster 
+az group delete --name AKSCSIResourceGroup --yes --no-wait
+
+#Resources 
+#https://docs.microsoft.com/en-us/azure/aks/csi-storage-drivers
+#https://docs.microsoft.com/en-us/azure/aks/azure-disk-csi
+#https://docs.microsoft.com/en-us/azure/aks/azure-files-csi
